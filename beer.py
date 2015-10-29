@@ -8,6 +8,8 @@ import click
 class URLs:
     base = 'https://www.systembolaget.se/api/'
     login = base + 'user/authenticate'
+    get_weblaunches = base + 'weblaunch/getweblaunches'
+    booking_create = base + 'weblaunch/createbooking'
 
 
 class LoginException(Exception):
@@ -17,8 +19,23 @@ class LoginException(Exception):
 def login(session, username, password):
     response = session.post(URLs.login, data={'Username': username, 'Password': password})
 
-    if not response.status_code == 200 or response.json()['IsValid'] is False:
+    if not response.status_code == 200 or not response.json()['IsValid']:
         raise LoginException('Incorrect username or password.')
+
+
+def create_booking(session, weblaunch_id, quantity):
+    data = {
+        'WebLaunchId': weblaunch_id,
+        'BookingQuantity': 1,
+        'IsQueue': False,
+    }
+    response = session.post(URLs.booking_create, data=data)
+    json = response.json()
+
+    if not response.status_code == 200 or not json['IsValid']:
+        assert False
+
+    assert json['TotalBookedQuantity'] == quantity
 
 
 @click.command()
@@ -30,6 +47,9 @@ def main(username, password):
     try:
         login(session, username, password)
         print('Successfully logged in!')
+
+        create_booking(session, weblaunch_id=336, quantity=1)
+        print('Booked')
 
     except LoginException as e:
         print(e.message)
