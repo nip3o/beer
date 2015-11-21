@@ -1,8 +1,23 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 
+import datetime
 import requests
 import click
+
+
+@click.command()
+@click.argument('username', envvar='BEER_USERNAME')
+@click.argument('password', envvar='BEER_PASSWORD')
+def main(username, password):
+    try:
+        bot = BeerBot(username, password)
+        print(bot.get_weblaunch_start())
+
+    except LoginException as e:
+        print(e.message)
+
+    print()
 
 
 class URLs:
@@ -16,45 +31,47 @@ class LoginException(Exception):
     pass
 
 
-def login(session, username, password):
-    response = session.post(URLs.login, data={'Username': username, 'Password': password})
+class BeerBot(object):
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.session = requests.Session()
 
-    if not response.status_code == 200 or not response.json()['IsValid']:
-        raise LoginException('Incorrect username or password.')
+    def login(self):
+        response = self.session.post(URLs.login, data={'Username': self.username, 'Password': self.password})
 
+        if not response.status_code == 200 or not response.json()['IsValid']:
+            raise LoginException('Incorrect username or password.')
 
-def create_booking(session, weblaunch_id, quantity):
-    data = {
-        'WebLaunchId': weblaunch_id,
-        'BookingQuantity': 1,
-        'IsQueue': False,
-    }
-    response = session.post(URLs.booking_create, data=data)
-    json = response.json()
+    def get_weblaunch_start(self):
+        self.login()
 
-    if not response.status_code == 200 or not json['IsValid']:
-        assert False
+        response = self.session.get(URLs.get_weblaunches)
+        json = response.json()
 
-    assert json['TotalBookedQuantity'] == quantity
+        if not response.status_code == 200:
+            assert False
 
+        if not json:
+            return None
 
-@click.command()
-@click.argument('username', envvar='BEER_USERNAME')
-@click.argument('password', envvar='BEER_PASSWORD')
-def main(username, password):
-    session = requests.Session()
+        return datetime.datetime.strptime(json[0]['StartDate'], '%Y-%m-%dT%H:%M:%S')
 
-    try:
-        login(session, username, password)
-        print('Successfully logged in!')
+    def create_booking(self, weblaunch_id, quantity):
+        self.login()
 
-        create_booking(session, weblaunch_id=336, quantity=1)
-        print('Booked')
+        data = {
+            'WebLaunchId': weblaunch_id,
+            'BookingQuantity': 1,
+            'IsQueue': False,
+        }
+        response = self.session.post(URLs.booking_create, data=data)
+        json = response.json()
 
-    except LoginException as e:
-        print(e.message)
+        if not response.status_code == 200 or not json['IsValid']:
+            assert False
 
-    print()
+        assert json['TotalBookedQuantity'] == quantity
 
 
 if __name__ == '__main__':
