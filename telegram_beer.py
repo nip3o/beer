@@ -24,7 +24,7 @@ def main(api_token):
 
     while True:
         try:
-            update_id = whatever(bot, update_id)
+            update_id = fetch_and_handle_messages(bot, update_id)
 
         except telegram.TelegramError as e:
             # These are network problems with Telegram.
@@ -38,7 +38,7 @@ def main(api_token):
             sleep(1)
 
 
-def whatever(bot, update_id):
+def fetch_and_handle_messages(bot, update_id):
     for update in bot.getUpdates(offset=update_id, timeout=10):
         print(update.message)
 
