@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import os
 import click
@@ -44,10 +44,10 @@ def whatever(bot, update_id):
 
         try:
             authenticate(update)
-            responses = get_responses_for(bot, update.message)
+            response = get_responses_for(update.message)
 
-            for response in (responses or []):
-                bot.sendMessage(chat_id=update.message.chat_id, text=response)
+            if response:
+                bot.sendMessage(chat_id=update.message.chat_id, **response)
 
         except InvalidCommand as e:
             bot.sendMessage(chat_id=update.message.chat_id, text=e.message)
@@ -64,20 +64,25 @@ def authenticate(update):
         raise InvalidCommand('I do not know you. You shall not pass.')
 
 
-def get_responses_for(bot, message):
+def get_responses_for(message):
     if message.text == '/when':
-        return when(bot)
+        return when()
+
+    if message.text.startswith('/add'):
+        return add(message.text)
 
 
-def when(bot):
+def create_beerbot():
     username = os.environ['BEER_USERNAME']
     password = os.environ['BEER_PASSWORD']
+    return BeerBot(username, password)
 
-    remote = BeerBot(username, password)
-    start = remote.get_weblaunch_start()
+
+def when():
+    start = create_beerbot().get_weblaunch_start()
 
     if not start:
-        return ['There are no planned events right now.']
+        return {'text': 'There are no planned events right now.'}
 
     if start >= datetime.datetime.now():
         days = (start - datetime.datetime.now()).days
@@ -85,11 +90,31 @@ def when(bot):
     else:
         text = 'There is an open event right now (started at {}).'.format(start)
 
-    return ["""
+    return {'disable_web_page_preview': True, 'text': """
 {}
 
 https://www.systembolaget.se/fakta-och-nyheter/nyheter-i-sortimentet/webblanseringar/webblansering/
-""".format(text)]
+""".format(text)}
+
+
+def add(message):
+    product_number = message[4:].strip()
+
+    if not product_number:
+        return {'text': 'Which product number should be added?', 'force_reply': True}
+
+    weblaunch = create_beerbot().get_weblaunch_by_product(product_number)
+
+    if not weblaunch:
+        return {'text': 'Could not find any web launch for that product.'}
+
+    add_weblaunch(weblaunch.weblaunch_id)
+
+    return {'text': 'Will book "{}"\n{}'.format(weblaunch.product_name, weblaunch.url)}
+
+
+def add_weblaunch(weblaunch_id):
+    pass
 
 
 if __name__ == '__main__':

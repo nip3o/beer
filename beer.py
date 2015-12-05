@@ -2,8 +2,14 @@
 from __future__ import print_function, unicode_literals
 
 import datetime
+import random
+
 import requests
 import click
+
+from characteristic import attributes
+
+from constants import USER_AGENTS, URLs
 
 
 @click.command()
@@ -20,14 +26,12 @@ def main(username, password):
     print()
 
 
-class URLs:
-    base = 'https://www.systembolaget.se/api/'
-    login = base + 'user/authenticate'
-    get_weblaunches = base + 'weblaunch/getweblaunches'
-    booking_create = base + 'weblaunch/createbooking'
-
-
 class LoginException(Exception):
+    pass
+
+
+@attributes(['weblaunch_id', 'product_number', 'product_name', 'url'])
+class WebLaunch(object):
     pass
 
 
@@ -38,12 +42,20 @@ class BeerBot(object):
         self.session = requests.Session()
 
     def login(self):
-        response = self.session.post(URLs.login, data={'Username': self.username, 'Password': self.password})
+        headers = {
+            'User-Agent': random.choice(USER_AGENTS),
+        }
+
+        response = self.session.post(
+            URLs.login,
+            headers=headers,
+            json={'Username': self.username, 'Password': self.password}
+        )
 
         if not response.status_code == 200 or not response.json()['IsValid']:
             raise LoginException('Incorrect username or password.')
 
-    def get_weblaunch_start(self):
+    def get_weblaunches(self):
         self.login()
 
         response = self.session.get(URLs.get_weblaunches)
@@ -52,10 +64,29 @@ class BeerBot(object):
         if not response.status_code == 200:
             assert False
 
+        return json
+
+    def get_weblaunch_start(self):
+        json = self.get_weblaunches()
         if not json:
             return None
 
         return datetime.datetime.strptime(json[0]['StartDate'], '%Y-%m-%dT%H:%M:%S')
+
+    def get_weblaunch_by_product(self, product_number):
+        json = self.get_weblaunches()
+        if not json:
+            return None
+
+        for item in json:
+            if item['Product']['ProductNumber'] == product_number:
+                url = URLs.base + item['Product']['ProductUrl']
+                return WebLaunch(
+                    url=url,
+                    product_number=product_number,
+                    product_name=item['Product']['ProductNameBold'],
+                    weblaunch_id=item['WebLaunchId'],
+                )
 
     def create_booking(self, weblaunch_id, quantity):
         self.login()
