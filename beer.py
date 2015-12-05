@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 
-import datetime
 import random
 
 import requests
@@ -10,6 +9,7 @@ import click
 from characteristic import attributes
 
 from constants import USER_AGENTS, URLs
+from utils import string_to_datetime
 
 
 @click.command()
@@ -71,7 +71,7 @@ class BeerBot(object):
         if not json:
             return None
 
-        return datetime.datetime.strptime(json[0]['StartDate'], '%Y-%m-%dT%H:%M:%S')
+        return string_to_datetime(json[0]['StartDate'])
 
     def get_weblaunch_by_product(self, product_number):
         json = self.get_weblaunches()

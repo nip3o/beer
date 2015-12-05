@@ -6,10 +6,12 @@ import click
 import telegram
 import datetime
 
+import model
+
 from time import sleep
 from urllib2 import URLError
 
-from beer import BeerBot
+from utils import create_beerbot
 
 
 class InvalidCommand(Exception):
@@ -44,7 +46,7 @@ def fetch_and_handle_messages(bot, update_id):
 
         try:
             authenticate(update)
-            response = get_responses_for(update.message)
+            response = get_responses_for(update)
 
             if response:
                 bot.sendMessage(chat_id=update.message.chat_id, **response)
@@ -64,21 +66,24 @@ def authenticate(update):
         raise InvalidCommand('I do not know you. You shall not pass.')
 
 
-def get_responses_for(message):
+def get_responses_for(update):
+    message = update.message
+
     if message.text == '/when':
-        return when()
+        return command_when()
 
     if message.text.startswith('/add'):
-        return add(message.text)
+        return command_add(message.text)
+
+    if message.text.startswith('/start'):
+        return command_start(update)
 
 
-def create_beerbot():
-    username = os.environ['BEER_USERNAME']
-    password = os.environ['BEER_PASSWORD']
-    return BeerBot(username, password)
+def command_start(update):
+    model.add_weblaunch_subscription(update.message.chat_id)
 
 
-def when():
+def command_when():
     start = create_beerbot().get_weblaunch_start()
 
     if not start:
@@ -97,7 +102,7 @@ https://www.systembolaget.se/fakta-och-nyheter/nyheter-i-sortimentet/webblanseri
 """.format(text)}
 
 
-def add(message):
+def command_add(message):
     product_number = message[4:].strip()
 
     if not product_number:
