@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 
+import time
 import click
 import telegram
 
@@ -12,6 +13,12 @@ from utils import create_beerbot, datetime_to_string, string_to_datetime
 @click.command()
 @click.argument('api_token', envvar='BEER_TELEGRAM_API_TOKEN')
 def main(api_token):
+    while True:
+        notify_weblaunches(api_token)
+        time.sleep(60)
+
+
+def notify_weblaunches(api_token):
     beer_bot = create_beerbot()
     telegram_bot = telegram.Bot(api_token)
 
