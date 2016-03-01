@@ -12,6 +12,7 @@ from time import sleep
 from urllib2 import URLError
 
 from utils import create_beerbot
+from beer import BeerBot, LoginException
 
 
 class InvalidCommand(Exception):
@@ -60,31 +61,63 @@ def fetch_and_handle_messages(bot, update_id):
 
 
 def authenticate(update):
-    telegram_user = os.environ.get('BEER_TELEGRAM_USER')
+    telegram_users = os.environ.get('BEER_TELEGRAM_USER')
 
-    if telegram_user and not update.message.from_user.username == telegram_user:
-        raise InvalidCommand('I do not know you. You shall not pass.')
+    if telegram_users and update.message.from_user.username not in telegram_users:
+        raise InvalidCommand('Invalid Telegram user. You shall not pass.')
+
+
+def require_user(wrapped):
+    def fn(update):
+        if not model.get_user(update.message.chat_id):
+            raise InvalidCommand('No user added. Run /register to add a user.')
+        return wrapped(update)
+
+    return fn
 
 
 def get_responses_for(update):
     message = update.message
 
     if message.text == '/when':
-        return command_when()
+        return command_when(update)
 
     if message.text.startswith('/add'):
-        return command_add(message.text)
+        return command_add(update)
 
     if message.text.startswith('/start'):
         return command_start(update)
+
+    if message.text.startswith('/register'):
+        return command_register(update)
 
 
 def command_start(update):
     model.add_weblaunch_subscription(update.message.chat_id)
 
 
-def command_when():
-    start = create_beerbot().get_weblaunch_start()
+def command_register(update):
+    parts = update.message.text.split()
+
+    if not len(parts) == 3:
+        raise InvalidCommand('Usage: /register username password')
+
+    username, password = parts[1:]
+    try:
+        BeerBot(username, password).get_weblaunch_start()
+    except LoginException:
+        return {'text': 'Invalid username or password.'}
+
+    model.add_user(update.message.chat_id, username, password)
+    return {'text': 'Created user.'}
+
+
+@require_user
+def command_when(update):
+    try:
+        start = create_beerbot(update.message.chat_id).get_weblaunch_start()
+    except LoginException:
+        return {'text': 'Could not log in.'}
 
     if not start:
         return {'text': 'There are no planned events right now.'}
@@ -102,24 +135,24 @@ https://www.systembolaget.se/fakta-och-nyheter/nyheter-i-sortimentet/webblanseri
 """.format(text)}
 
 
-def command_add(message):
+@require_user
+def command_add(update):
+    message = update.message.text
+
+    if not message:
+        raise InvalidCommand('Usage: /add product-number')
+
     product_number = message[4:].strip()
-
-    if not product_number:
-        return {'text': 'Which product number should be added?', 'force_reply': True}
-
-    weblaunch = create_beerbot().get_weblaunch_by_product(product_number)
+    try:
+        weblaunch = create_beerbot(update.message.chat_id).get_weblaunch_by_product(product_number)
+    except LoginException:
+        return {'text': 'Could not log in.'}
 
     if not weblaunch:
         return {'text': 'Could not find any web launch for that product.'}
 
-    add_weblaunch(weblaunch.weblaunch_id)
-
+    model.add_weblaunch_booking(update.message.chat_id, weblaunch.weblaunch_id)
     return {'text': 'Will book "{}"\n{}'.format(weblaunch.product_name, weblaunch.url)}
-
-
-def add_weblaunch(weblaunch_id):
-    pass
 
 
 if __name__ == '__main__':

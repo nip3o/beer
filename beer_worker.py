@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 
+import os
 import time
 import click
 import telegram
 
 import model
+from beer import BeerBot
 
-from utils import create_beerbot, datetime_to_string, string_to_datetime
+from utils import datetime_to_string, string_to_datetime
 
 
 @click.command()
@@ -19,7 +21,7 @@ def main(api_token):
 
 
 def notify_weblaunches(api_token):
-    beer_bot = create_beerbot()
+    beer_bot = BeerBot(os.environ['BEER_USERNAME'], os.environ['BEER_PASSWORD'])
     telegram_bot = telegram.Bot(api_token)
 
     start = beer_bot.get_weblaunch_start()

@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-import os
 import datetime
 
+import model
 
-def create_beerbot():
+
+def create_beerbot(chat_id):
     from beer import BeerBot
 
-    username = os.environ['BEER_USERNAME']
-    password = os.environ['BEER_PASSWORD']
-    return BeerBot(username, password)
+    user = model.get_user(chat_id)
+    return BeerBot(user['username'], user['password'])
 
 
 def string_to_datetime(string):
