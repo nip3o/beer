@@ -12,6 +12,12 @@ from constants import USER_AGENTS, URLs
 from utils import string_to_datetime
 
 
+def get_headers():
+    return {
+        'User-Agent': random.choice(USER_AGENTS),
+    }
+
+
 @click.command()
 @click.argument('username', envvar='BEER_USERNAME')
 @click.argument('password', envvar='BEER_PASSWORD')
@@ -42,13 +48,9 @@ class BeerBot(object):
         self.session = requests.Session()
 
     def login(self):
-        headers = {
-            'User-Agent': random.choice(USER_AGENTS),
-        }
-
         response = self.session.post(
             URLs.login,
-            headers=headers,
+            headers=get_headers(),
             json={'Username': self.username, 'Password': self.password}
         )
 
@@ -96,7 +98,7 @@ class BeerBot(object):
             'BookingQuantity': 1,
             'IsQueue': False,
         }
-        response = self.session.post(URLs.booking_create, data=data)
+        response = self.session.post(URLs.booking_create, headers=get_headers(), json=data)
         json = response.json()
 
         if not response.status_code == 200 or not json['IsValid']:

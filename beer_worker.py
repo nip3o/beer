@@ -16,8 +16,26 @@ from utils import datetime_to_string, string_to_datetime
 @click.argument('api_token', envvar='BEER_TELEGRAM_API_TOKEN')
 def main(api_token):
     while True:
-        notify_weblaunches(api_token)
+        # notify_weblaunches(api_token)
+        book_added_weblaunches(api_token)
         time.sleep(60)
+
+
+def book_added_weblaunches(api_token):
+    bookings = model._load_weblaunch_bookings()
+
+    for chat_id, weblaunch_ids in bookings.iteritems():
+        user = model.get_user(chat_id)
+        beer_bot = BeerBot(user['username'], user['password'])
+
+        start = beer_bot.get_weblaunch_start()
+        if not start:
+            return
+
+        for weblaunch_id in weblaunch_ids:
+            beer_bot.create_booking(weblaunch_id=int(weblaunch_id), quantity=1)
+
+        model._save_weblaunch_bookings({})
 
 
 def notify_weblaunches(api_token):
@@ -28,7 +46,7 @@ def notify_weblaunches(api_token):
     if not start:
         return
 
-    subscriptions = model.load_weblaunch_subscriptions()
+    subscriptions = model._load_weblaunch_subscriptions()
 
     for chat_id, latest_weblaunch_date in subscriptions.iteritems():
         if start == string_to_datetime(latest_weblaunch_date):
